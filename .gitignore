@@ -11,3 +11,15 @@ __pycache__/
 
 # Environment Variables
 .env
+
+# ROS2 colcon build artifacts
+03_ROS/ros2_ws/build/
+03_ROS/ros2_ws/install/
+03_ROS/ros2_ws/log/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE / Editor
+.vscode/
+.idea/
