@@ -1,81 +1,66 @@
-import cv2
 import rclpy
-from cv_bridge import CvBridge
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from ultralytics import YOLO
-
+import cv2
+from cv_bridge import CvBridge
+from rcl_interfaces.msg import SetParametersResult
 
 class ImagePublisher(Node):
     def __init__(self):
-        super().__init__("image_publisher")
+        super().__init__('image_publisher')
 
-        # Publish camera frames with YOLO detections to ROS2 topic.
-        self.publisher_ = self.create_publisher(Image, "image_raw", 10)
-        self.timer = self.create_timer(0.1, self.timer_callback)  # 10 Hz
+        self.declare_parameter('publish_rate', 10.0)
+        self.declare_parameter('topic_name', 'image_raw')
+        self.declare_parameter('image_size', [320, 240])
+        
+        self.rate = self.get_parameter('publish_rate').value
+        self.topic = self.get_parameter('topic_name').value
+        self.size = self.get_parameter('image_size').value
 
+        self.add_on_set_parameters_callback(self.parameter_callback)
+
+        # 1. 퍼블리셔 생성: 타입은 Image, 토픽명은 'image_raw', 큐 크기는 10
+        self.publisher_ = self.create_publisher(Image, 'image_raw', 10)
+        # 2. 타이머 설정: 0.1초마다 timer_callback 실행 (10Hz)
+        self.timer = self.create_timer(1.0 / self.rate, self.timer_callback)
+        # 3. 웹캠 연결 (0번 카메라)
         self.cap = cv2.VideoCapture(0)
         self.bridge = CvBridge()
 
-        if not self.cap.isOpened():
-            self.get_logger().error("웹캠(0번)을 열 수 없습니다.")
+    def parameter_callback(self, params):
+        for param in params:
+            if param.name == 'publish_rate':
+                self.rate = param.value
 
-        # Load YOLOv8 model
-        try:
-            self.model = YOLO("yolov8n.pt")
-            self.get_logger().info("YOLOv8 모델 로드 완료")
-        except Exception as e:
-            self.get_logger().error(f"YOLOv8 모델 로드 실패: {e}")
-            self.model = None
+                self.timer.cancel()
+                self.timer = self.create_timer(1.0 / self.rate, self.timer_callback)
+
+                self.get_logger().info(f'Publish rate updated: {self.rate}Hz')
+            elif param.name == 'image_size':
+                self.size = param.value
+                self.get_logger().info(f'해상도 변경: {self.size}')
+        return SetParametersResult(successful=True)
 
     def timer_callback(self):
         ret, frame = self.cap.read()
-        if not ret:
-            self.get_logger().warning("프레임을 읽지 못했습니다.")
-            return
+        if ret:
+            # OpenCV 이미지를 ROS2 이미지 메시지로 변환하여 퍼블리시
+            resized = cv2.resize(frame, tuple(self.size))
+            img_msg = self.bridge.cv2_to_imgmsg(resized, encoding="bgr8")
 
-        # Run YOLO detection
-        if self.model is not None:
-            results = self.model(frame, verbose=False)
-            
-            # Draw bounding boxes on frame
-            for result in results:
-                for box in result.boxes:
-                    # Get bounding box coordinates
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = float(box.conf[0])
-                    cls_id = int(box.cls[0])
-                    cls_name = result.names[cls_id]
-                    
-                    # Draw rectangle with label
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    label = f"{cls_name} {conf:.2f}"
-                    cv2.putText(frame, label, (x1, y1 - 10),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            img_msg.header.stamp = self.get_clock().now().to_msg()
+            img_msg.header.frame_id = "camera_link"
 
-        img_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
-        img_msg.header.stamp = self.get_clock().now().to_msg()
-        img_msg.header.frame_id = "camera_link"
-        self.publisher_.publish(img_msg)
-
-    def destroy_node(self):
-        if self.cap is not None and self.cap.isOpened():
-            self.cap.release()
-        super().destroy_node()
-
+            self.publisher_.publish(img_msg)
+            # self.get_logger().info('이미지 발행 중...')
 
 def main(args=None):
     rclpy.init(args=args)
     node = ImagePublisher()
-
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+    node.destroy_node()
+    rclpy.shutdown()
 
-
-if __name__ == "__main__":
-    main()

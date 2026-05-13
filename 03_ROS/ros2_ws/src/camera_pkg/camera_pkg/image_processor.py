@@ -36,11 +36,11 @@ class ImageProcessor(Node):
         # Apply Canny edge detection and publish to /image_edge topic.
         gray = cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2GRAY)
         edge = cv2.Canny(gray, 100, 200)
-        
+
         # Display edge detection result
-        cv2.imshow("Edge Detection", edge)
-        cv2.waitKey(1)
-        
+        #cv2.imshow("Edge Detection", edge)
+        #cv2.waitKey(1)
+
         edge_msg = self.bridge.cv2_to_imgmsg(edge, encoding="mono8")
         edge_msg.header.stamp = msg.header.stamp
         edge_msg.header.frame_id = msg.header.frame_id
