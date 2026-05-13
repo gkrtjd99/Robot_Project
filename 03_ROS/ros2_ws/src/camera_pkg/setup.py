@@ -30,6 +30,7 @@ setup(
             'img_pub = camera_pkg.image_publisher:main',
             'img_canny = camera_pkg.image_canny:main',
             'img_yolo = camera_pkg.image_yolo:main',
+            'yolo_pub = camera_pkg.yolo_publisher:main',
         ],
     },
 )

@@ -28,6 +28,13 @@ def generate_launch_description():
         parameters=[config]
     )
 
+    # yolo_publisher
+    yolo_publisher = Node(
+        package='camera_pkg',
+        executable='yolo_pub',
+        parameters=[config]
+    )
+
     # rqt_image_view (조건부 실행)
     viewer_node = Node(
         package='rqt_image_view',
@@ -39,5 +46,6 @@ def generate_launch_description():
         use_rviz_arg,
         image_publisher,
         viewer_node,
+        yolo_publisher,
     ])
 
