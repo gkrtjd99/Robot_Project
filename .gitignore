@@ -20,6 +20,10 @@ __pycache__/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
+# ML model weights
+*.pt
+*.pth
+
 # IDE / Editor
 .vscode/
 .idea/
